@@ -1,10 +1,67 @@
 class StaffMember
   include ActiveModel::Model
-  def events; {} end
-  def timezone; Time.find_zone("PST8PDT") end
-  def start_hour; self.try(:start_work_hour__c) || '10:00' end
-  def end_hour; self.try(:end_work_hour__c)   || '19:00' end
-  def start_hour_offset; ChronicDuration.parse([start_hour, ':00'].join) end
-  def end_hour_offset; ChronicDuration.parse([end_hour, ':00'].join) end
 
+  DEFAULT_OPENING_HOUR = '10:00'.freeze
+  DEFAULT_CLOSING_HOUR = '19:00'.freeze
+  TIMEZONE = 'PST8PDT'.freeze
+
+  def initialize **args
+    @custom_opening_hour = args[:custom_opening_hour]
+    @custom_closing_hour = args[:custom_closing_hour]
+    @custom_weekend_opening_hour = args[:custom_weekend_opening_hour]
+    @custom_weekend_closing_hour = args[:custom_weekend_closing_hour]
+  end
+
+  def events
+    {}
+  end
+
+  def timezone
+    Time.find_zone(TIMEZONE)
+  end
+
+  def start_work_hour__c
+    @custom_opening_hour
+  end
+
+  def end_work_hour__c
+    @custom_closing_hour
+  end
+
+  def start_hour
+    try(:start_work_hour__c) || DEFAULT_OPENING_HOUR
+  end
+
+  def end_hour
+    try(:end_work_hour__c) || DEFAULT_CLOSING_HOUR
+  end
+
+  def weekend_opening_hour
+    @custom_weekend_opening_hour || DEFAULT_OPENING_HOUR
+  end
+
+  def weekend_closing_hour
+    @custom_weekend_closing_hour || DEFAULT_CLOSING_HOUR
+  end
+
+  def start_hour_offset
+    chronic_duration(start_hour)
+  end
+
+  def end_hour_offset
+    chronic_duration(end_hour)
+  end
+
+  def weekend_start_hour_offset
+    chronic_duration(weekend_opening_hour)
+  end
+
+  def weekend_end_hour_offset
+    chronic_duration(weekend_closing_hour)
+  end
+
+  private
+  def chronic_duration(hour)
+    ChronicDuration.parse([hour, ':00'].join)
+  end
 end

@@ -1,7 +1,6 @@
 # class StaffMemberSchedule < Struct.new(:staff_member, :since, :till, :duration, :timezone)
 class StaffMemberSchedule < Dry::Struct
 
-
   module BitMask
     QuantSize = 5.minutes
 
@@ -31,23 +30,18 @@ class StaffMemberSchedule < Dry::Struct
   attribute :till, Types::Strict::Time
   attribute :duration, Types.Instance(ActiveSupport::Duration)
 
-
-  delegate :start_hour_offset, :end_hour_offset, :timezone, :events, to: :staff_member
-
+  delegate :start_hour_offset, :end_hour_offset, :weekend_start_hour_offset, :weekend_end_hour_offset, :timezone, :events, to: :staff_member
 
   def initialize *args
     super *args
     @since = since.beginning_of_day
     self.timezone ||= since.time_zone
-    @till  = self.class.round_up_to_five_minutes   till.to_time.in_time_zone(timezone)
+    @till = self.class.round_up_to_five_minutes till.to_time.in_time_zone(timezone)
   end
-
-
 
   def openings
-    return free_slots_chunk.map(&:first)
+    free_slots_chunk.map(&:first)
   end
-
 
   def free_slots_chunk
     conflicting = {}
@@ -82,8 +76,8 @@ class StaffMemberSchedule < Dry::Struct
         map {|e| e.in_time_zone(staff_member.timezone) }.
         flat_map do |staff_member_tz_day|
 
-        a = [staff_member_tz_day.beginning_of_day, staff_member_tz_day + start_hour_offset]
-        b = [staff_member_tz_day + end_hour_offset, staff_member_tz_day.tomorrow.beginning_of_day]
+        a = [staff_member_tz_day.beginning_of_day, start_offset(staff_member_tz_day)]
+        b = [end_offset(staff_member_tz_day), staff_member_tz_day.tomorrow.beginning_of_day]
         [a, b]
 
     end.
@@ -91,12 +85,22 @@ class StaffMemberSchedule < Dry::Struct
     map {|x,y| [if x < since then since else x end, if y > till then till else y end]} # cut corners
   end
 
-
   # private
+  def weekend?(day)
+    day.saturday? || day.sunday?
+  end
+
+  def start_offset(day)
+    offset = weekend?(day) ? weekend_start_hour_offset : start_hour_offset
+    day + offset
+  end
+
+  def end_offset(day)
+    offset = weekend?(day) ? weekend_end_hour_offset : end_hour_offset
+    day + offset
+  end
 
   def staff_member_timezone_interval_wrapping_given_interval
     [staff_member.timezone.at(since).beginning_of_day, staff_member.timezone.at(till).tomorrow.beginning_of_day]
   end
-
-
 end
